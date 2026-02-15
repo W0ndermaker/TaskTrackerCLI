@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
+
+	"TaskTrackerCLI/commands/inner"
 )
 
 type task struct {
@@ -15,25 +18,56 @@ type task struct {
 	UpdatedAt   string `json:"updatedAt"`
 }
 
+const storageName = "./storage.json"
+
 func Add(TaskName string) error {
 	// открытие файла для чтения и записи если существует, если нет то создаётся файл
-	file, err := os.OpenFile("./storage.json", os.O_RDWR|os.O_CREATE, 0644)
+	file, err := os.OpenFile(storageName, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		fmt.Println("Error occured while creating storage file:")
 		return err
 	}
 	defer file.Close()
 
-	// надо прочитать, десериализировать и взять номер Id
+	// чтение данных уже находящихся в файле
+	dataFromFile, err := inner.ReadData(storageName)
+	if err != nil {
+		return err
+	}
+	fileDataLen := len(dataFromFile)
 
-	//...
+	// Поиск Id последней добавленной таски
+	lastTaskId := 0
+	tasks := []task{}
+	if fileDataLen != 0 {
+
+		err = json.Unmarshal(dataFromFile, &tasks)
+		if err != nil {
+			fmt.Println("Error occurred wgile unmarshalling")
+			return err
+		}
+
+		lastTaskId = tasks[len(tasks)-1].ID
+	}
+
+	for _, t := range tasks {
+		if t.Description == TaskName {
+			fmt.Println("This task already exists!")
+			return nil
+		}
+	}
+
+	// Время добавления таски
+	creadtedTime := time.Now()
+	formattedTime := creadtedTime.Format("2006-01-02 15:04:05")
 
 	// создание таски
 	t := task{
-		ID:          0,
+		ID:          lastTaskId + 1,
 		Description: TaskName,
-		CreatedAt:   "",
-		UpdatedAt:   "",
+		Status:      "todo",
+		CreatedAt:   formattedTime,
+		UpdatedAt:   formattedTime,
 	}
 	// сериализация
 	data, err := json.MarshalIndent(t, "", " ")
@@ -42,19 +76,15 @@ func Add(TaskName string) error {
 		return err
 	}
 
-	// чтение самого первого элемента файла
-	buf := make([]byte, 1)
-	n, err := file.Read(buf)
-
 	// запись
-	if n == 0 {
+	if fileDataLen == 0 {
 		file.WriteString("[" + string(data) + "]")
 	} else {
 		file.Seek(-1, io.SeekEnd)
 		file.WriteString(",\n" + string(data) + "]")
 	}
 
-	fmt.Println("Task was added")
+	fmt.Println("Task was added successfully!!!")
 
 	return nil
 }
