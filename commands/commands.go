@@ -1,95 +1,78 @@
 package commands
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"os"
+	"strconv"
+	"strings"
 	"time"
 
-	"TaskTrackerCLI/commands/inner"
+	"TaskTrackerCLI/internal"
 )
 
-type task struct {
-	ID          int    `json:"id"`
-	Description string `json:"description"`
-	Status      string `json:"status"`
-	CreatedAt   string `json:"createdAt"`
-	UpdatedAt   string `json:"updatedAt"`
-}
-
-const storageName = "./storage.json"
-
-func Add(TaskName string) error {
-	// открытие файла для чтения и записи если существует, если нет то создаётся файл
-	file, err := os.OpenFile(storageName, os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		fmt.Println("Error occured while creating storage file:")
-		return err
-	}
-	defer file.Close()
-
-	// чтение данных уже находящихся в файле
-	dataFromFile, err := inner.ReadData(storageName)
-	if err != nil {
-		return err
-	}
-	fileDataLen := len(dataFromFile)
-
+func Add(TaskName string, tasks []internal.Task) error {
 	// Поиск Id последней добавленной таски
-	lastTaskId := 0
-	tasks := []task{}
-	if fileDataLen != 0 {
-
-		err = json.Unmarshal(dataFromFile, &tasks)
-		if err != nil {
-			fmt.Println("Error occurred wgile unmarshalling")
-			return err
-		}
-
-		lastTaskId = tasks[len(tasks)-1].ID
+	lastTaskId := 1
+	if len(tasks) != 0 {
+		lastTaskId += tasks[len(tasks)-1].ID
 	}
-
-	for _, t := range tasks {
-		if t.Description == TaskName {
-			fmt.Println("This task already exists!")
-			return nil
-		}
-	}
-
 	// Время добавления таски
 	creadtedTime := time.Now()
 	formattedTime := creadtedTime.Format("2006-01-02 15:04:05")
 
 	// создание таски
-	t := task{
-		ID:          lastTaskId + 1,
+	newTask := internal.Task{
+		ID:          lastTaskId,
 		Description: TaskName,
 		Status:      "todo",
 		CreatedAt:   formattedTime,
 		UpdatedAt:   formattedTime,
 	}
-	// сериализация
-	data, err := json.MarshalIndent(t, "", " ")
+
+	tasks = append(tasks, newTask)
+
+	err := internal.WriteToStorage(tasks)
 	if err != nil {
-		fmt.Println("Error occured while marshalising the data into JSON")
-		return err
+		return fmt.Errorf("failed to save updated task: %w", err)
 	}
-
-	// запись
-	if fileDataLen == 0 {
-		file.WriteString("[" + string(data) + "]")
-	} else {
-		file.Seek(-1, io.SeekEnd)
-		file.WriteString(",\n" + string(data) + "]")
-	}
-
-	fmt.Println("Task was added successfully!!!")
-
+	fmt.Println("New task was added successfully!")
 	return nil
 }
 
-func Update() {}
+func Update(id string, newTaskName string, tasks []internal.Task) error {
+	if strings.TrimSpace(newTaskName) == "" {
+		return fmt.Errorf("task name cannot be empty")
+	}
+
+	if !internal.IsValidID(id) {
+		return fmt.Errorf("invalid taskID format: %s", id)
+	}
+
+	convertedID, err := strconv.Atoi(id)
+	if err != nil {
+		return fmt.Errorf("failed to convert taskID '%s' to integer: %w", id, err)
+	}
+
+	//  Поиск задачи (бинарынй поиск)
+	taskIndex := internal.BinarySearchOfTaskID(tasks, convertedID)
+	if taskIndex == -1 {
+		return fmt.Errorf("task with ID %d not found", convertedID)
+	}
+
+	// Сохраняем старое значение для логирования
+	oldDescription := tasks[taskIndex].Description
+
+	//  Обновление задачи
+	tasks[taskIndex].Description = newTaskName
+
+	// Сохранение в хранилище
+	if err = internal.WriteToStorage(tasks); err != nil {
+		// Восстанавливаем предыдущее значение в случае ошибки
+		tasks[taskIndex].Description = oldDescription
+		return fmt.Errorf("failed to save updated task: %w", err)
+	}
+	fmt.Printf("Task(ID:%v) was updated successfully\n", tasks[taskIndex].ID)
+	return nil
+}
 
 func Delete() {}
 
