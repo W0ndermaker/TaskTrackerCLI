@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"unicode"
 )
 
@@ -98,4 +99,32 @@ func BinarySearchOfTaskID(tasks []Task, id int) int {
 
 	}
 	return -1
+}
+
+func FindTaskID(id string, tasks []Task) (int, error) {
+	if !IsValidID(id) {
+		return -1, fmt.Errorf("invalid taskID format: %s", id)
+	}
+
+	convertedID, err := strconv.Atoi(id)
+	if err != nil {
+		return -1, fmt.Errorf("failed to convert taskID '%s' to integer: %w", id, err)
+	}
+
+	//  Поиск задачи (бинарынй поиск)
+	taskIndex := BinarySearchOfTaskID(tasks, convertedID)
+	if taskIndex == -1 {
+		return -1, fmt.Errorf("task with ID %d not found", convertedID)
+	}
+
+	return taskIndex, nil
+}
+
+func PrintTask(task Task) {
+	fmt.Printf("-TaskID: %v\nDescription: %v\nStatus: %v\ncreatedAt: %v\nupdatedAt: %v\n\n",
+		task.ID,
+		task.Description,
+		task.Status,
+		task.CreatedAt,
+		task.UpdatedAt)
 }

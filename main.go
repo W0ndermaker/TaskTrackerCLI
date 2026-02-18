@@ -42,13 +42,47 @@ func main() {
 			fmt.Println(err)
 		}
 	case "delete":
-		commands.Delete()
+		if len(restArgs) != 1 {
+			fmt.Println("Invalid command: incorrect amount of args for -delete- command")
+			os.Exit(1)
+		}
+		err := commands.Delete(restArgs[0], tasksFromStorage)
+		if err != nil {
+			fmt.Println(err)
+		}
 	case "mark-in-progress":
-		commands.Mark_in_progress()
+		if len(restArgs) != 1 {
+			fmt.Println("Invalid command: incorrect amount of args for -mark_in_progress- command")
+			os.Exit(1)
+		}
+		err := commands.Mark(restArgs[0], tasksFromStorage, "in-progress")
+		if err != nil {
+			fmt.Println(err)
+		}
 	case "mark-done":
-		commands.Mark_done()
+		if len(restArgs) != 1 {
+			fmt.Println("Invalid command: incorrect amount of args for -mark_done- command")
+			os.Exit(1)
+		}
+		err := commands.Mark(restArgs[0], tasksFromStorage, "done")
+		if err != nil {
+			fmt.Println(err)
+		}
 	case "list":
-		commands.List()
+		statusFilter := ""
+		if len(restArgs) == 1 {
+			statusFilter = restArgs[0]
+		}
+
+		if len(restArgs) > 1 {
+			fmt.Println("Invalid command: incorrect amount of args for -list- command")
+			os.Exit(1)
+		}
+		err := commands.List(statusFilter, tasksFromStorage)
+		if err != nil {
+			fmt.Println(err)
+		}
+
 	default:
 		fmt.Println("Unknown command")
 	}

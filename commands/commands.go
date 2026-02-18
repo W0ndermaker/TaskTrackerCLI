@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -43,19 +42,9 @@ func Update(id string, newTaskName string, tasks []internal.Task) error {
 		return fmt.Errorf("task name cannot be empty")
 	}
 
-	if !internal.IsValidID(id) {
-		return fmt.Errorf("invalid taskID format: %s", id)
-	}
-
-	convertedID, err := strconv.Atoi(id)
+	taskIndex, err := internal.FindTaskID(id, tasks)
 	if err != nil {
-		return fmt.Errorf("failed to convert taskID '%s' to integer: %w", id, err)
-	}
-
-	//  Поиск задачи (бинарынй поиск)
-	taskIndex := internal.BinarySearchOfTaskID(tasks, convertedID)
-	if taskIndex == -1 {
-		return fmt.Errorf("task with ID %d not found", convertedID)
+		return err
 	}
 
 	// Сохраняем старое значение для логирования
@@ -74,10 +63,71 @@ func Update(id string, newTaskName string, tasks []internal.Task) error {
 	return nil
 }
 
-func Delete() {}
+func Delete(id string, tasks []internal.Task) error {
+	taskIndex, err := internal.FindTaskID(id, tasks)
+	if err != nil {
+		return err
+	}
+	tasks = append(tasks[:taskIndex], tasks[taskIndex+1:]...)
 
-func Mark_in_progress() {}
+	err = internal.WriteToStorage(tasks)
+	if err != nil {
+		return fmt.Errorf("failed to save updated task: %w", err)
+	}
+	fmt.Printf("Task(ID:%v) was deleted successfully\n", id)
+	return nil
+}
 
-func Mark_done() {}
+func Mark(id string, tasks []internal.Task, newStatus string) error {
+	taskIndex, err := internal.FindTaskID(id, tasks)
+	if err != nil {
+		return err
+	}
 
-func List() {}
+	// Если статус задачи уже такой же как новый статус
+	if tasks[taskIndex].Status == newStatus {
+		fmt.Printf("Status of this task(id:%v) is already %v", id, newStatus)
+		return nil
+	}
+	// Сохраняем старое значение для логирования
+	oldStatus := tasks[taskIndex].Status
+
+	//  Обновление задачи
+	tasks[taskIndex].Status = newStatus
+
+	// Сохранение в хранилище
+	if err = internal.WriteToStorage(tasks); err != nil {
+		// Восстанавливаем предыдущее значение в случае ошибки
+		tasks[taskIndex].Status = oldStatus
+		return fmt.Errorf("failed to save updated task: %w", err)
+	}
+	fmt.Printf("Status of task(ID:%v) was updated successfully\n", tasks[taskIndex].ID)
+	return nil
+}
+
+func List(filter string, tasks []internal.Task) error {
+	filter = strings.TrimSpace(filter)
+	if filter == "" {
+		for _, task := range tasks {
+			internal.PrintTask(task)
+		}
+		return nil
+	}
+	if filter != "todo" && filter != "in-progress" && filter != "done" {
+		return fmt.Errorf("Unknown status")
+	}
+
+	foundTask := false
+	for _, task := range tasks {
+		if task.Status == filter {
+			foundTask = true
+			internal.PrintTask(task)
+		}
+	}
+
+	if !foundTask {
+		fmt.Printf("No tasks with status:%v\n", filter)
+	}
+
+	return nil
+}
