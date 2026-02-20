@@ -8,28 +8,26 @@ import (
 	"TaskTrackerCLI/internal"
 )
 
-func Add(TaskName string, tasks []internal.Task) error {
-	// Поиск Id последней добавленной таски
+var StorageName = "./storage.json"
+
+func Add(taskName string, tasks []internal.Task) error {
 	lastTaskId := 1
 	if len(tasks) != 0 {
 		lastTaskId += tasks[len(tasks)-1].ID
 	}
-	// Время добавления таски
-	creadtedTime := time.Now()
-	formattedTime := creadtedTime.Format("2006-01-02 15:04:05")
+	creadtedTime := time.Now().Format("2006-01-02 15:04:05")
 
-	// создание таски
 	newTask := internal.Task{
 		ID:          lastTaskId,
-		Description: TaskName,
+		Description: taskName,
 		Status:      "todo",
-		CreatedAt:   formattedTime,
-		UpdatedAt:   formattedTime,
+		CreatedAt:   creadtedTime,
+		UpdatedAt:   creadtedTime,
 	}
 
 	tasks = append(tasks, newTask)
 
-	err := internal.WriteToStorage(tasks)
+	err := internal.WriteToStorage(StorageName, tasks)
 	if err != nil {
 		return fmt.Errorf("failed to save updated task: %w", err)
 	}
@@ -47,16 +45,15 @@ func Update(id string, newTaskName string, tasks []internal.Task) error {
 		return err
 	}
 
-	// Сохраняем старое значение для логирования
 	oldDescription := tasks[taskIndex].Description
+	oldUpdatedTime := tasks[taskIndex].UpdatedAt
 
-	//  Обновление задачи
 	tasks[taskIndex].Description = newTaskName
+	tasks[taskIndex].UpdatedAt = time.Now().Format("2006-01-02 15:04:05")
 
-	// Сохранение в хранилище
-	if err = internal.WriteToStorage(tasks); err != nil {
-		// Восстанавливаем предыдущее значение в случае ошибки
+	if err = internal.WriteToStorage(StorageName, tasks); err != nil {
 		tasks[taskIndex].Description = oldDescription
+		tasks[taskIndex].UpdatedAt = oldUpdatedTime
 		return fmt.Errorf("failed to save updated task: %w", err)
 	}
 	fmt.Printf("Task(ID:%v) was updated successfully\n", tasks[taskIndex].ID)
@@ -70,7 +67,7 @@ func Delete(id string, tasks []internal.Task) error {
 	}
 	tasks = append(tasks[:taskIndex], tasks[taskIndex+1:]...)
 
-	err = internal.WriteToStorage(tasks)
+	err = internal.WriteToStorage(StorageName, tasks)
 	if err != nil {
 		return fmt.Errorf("failed to save updated task: %w", err)
 	}
@@ -78,26 +75,22 @@ func Delete(id string, tasks []internal.Task) error {
 	return nil
 }
 
-func Mark(id string, tasks []internal.Task, newStatus string) error {
+func Mark(id string, newStatus string, tasks []internal.Task) error {
 	taskIndex, err := internal.FindTaskID(id, tasks)
 	if err != nil {
 		return err
 	}
 
-	// Если статус задачи уже такой же как новый статус
 	if tasks[taskIndex].Status == newStatus {
 		fmt.Printf("Status of this task(id:%v) is already %v", id, newStatus)
 		return nil
 	}
-	// Сохраняем старое значение для логирования
+
 	oldStatus := tasks[taskIndex].Status
 
-	//  Обновление задачи
 	tasks[taskIndex].Status = newStatus
 
-	// Сохранение в хранилище
-	if err = internal.WriteToStorage(tasks); err != nil {
-		// Восстанавливаем предыдущее значение в случае ошибки
+	if err = internal.WriteToStorage(StorageName, tasks); err != nil {
 		tasks[taskIndex].Status = oldStatus
 		return fmt.Errorf("failed to save updated task: %w", err)
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"TaskTrackerCLI/commands"
 	"TaskTrackerCLI/internal"
@@ -14,13 +15,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	tasksFromStorage, err := internal.ReadDataFromStorage()
+	// reading storage file
+	tasksFromStorage, err := internal.ReadDataFromStorage(commands.StorageName)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	command, restArgs := os.Args[1], os.Args[2:]
+	// lowercasing command and args
+	command, restArgs := strings.ToLower(os.Args[1]), os.Args[2:]
 
 	switch command {
 	case "add":
@@ -55,7 +58,7 @@ func main() {
 			fmt.Println("Invalid command: incorrect amount of args for -mark_in_progress- command")
 			os.Exit(1)
 		}
-		err := commands.Mark(restArgs[0], tasksFromStorage, "in-progress")
+		err := commands.Mark(restArgs[0], "in-progress", tasksFromStorage)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -64,7 +67,7 @@ func main() {
 			fmt.Println("Invalid command: incorrect amount of args for -mark_done- command")
 			os.Exit(1)
 		}
-		err := commands.Mark(restArgs[0], tasksFromStorage, "done")
+		err := commands.Mark(restArgs[0], "done", tasksFromStorage)
 		if err != nil {
 			fmt.Println(err)
 		}

@@ -8,8 +8,6 @@ import (
 	"unicode"
 )
 
-const storageName = "./storage.json"
-
 type Task struct {
 	ID          int    `json:"id"`
 	Description string `json:"description"`
@@ -18,33 +16,30 @@ type Task struct {
 	UpdatedAt   string `json:"updatedAt"`
 }
 
-func ReadDataFromStorage() ([]Task, error) {
-	// открытие файла для чтения если существует, если нет то создаётся файл
-	file, err := os.OpenFile(storageName, os.O_RDONLY|os.O_CREATE, 0644)
+// reads data from storage file if it exists else create a new one
+func ReadDataFromStorage(filename string) ([]Task, error) {
+	file, err := os.OpenFile(filename, os.O_RDONLY|os.O_CREATE, 0644)
 	if err != nil {
-		fmt.Println("Error occured while creating storage file:")
+		fmt.Println("Error occured while opening storage file:")
 		return nil, err
 	}
 	defer file.Close()
 
-	// подсчёт размера файла для буфера
 	fileInfo, err := file.Stat()
 	if err != nil {
 		return nil, err
 	}
 	fileSize := fileInfo.Size()
 
-	// если файл изначально пустой
 	if fileSize == 0 {
 		return []Task{}, nil
 	}
 
 	myBuf := make([]byte, fileSize)
 
-	// чтение данных уже находящихся в файле
 	_, err = file.Read(myBuf)
 	if err != nil {
-		fmt.Println("Error while reading file")
+		fmt.Println("Error while storing read data from file")
 		return nil, err
 	}
 
@@ -57,19 +52,17 @@ func ReadDataFromStorage() ([]Task, error) {
 	return tasks, nil
 }
 
-func WriteToStorage(newInfo []Task) error {
-	// открытие файла для записи
-	file, err := os.OpenFile(storageName, os.O_WRONLY|os.O_TRUNC, 0644)
+// writes new tasks to storage file
+func WriteToStorage(filename string, newInfo []Task) error {
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 	if err != nil {
-		return fmt.Errorf("Error occured while creating storage file: %w", err)
+		return fmt.Errorf("Error occured while opening storage file: %w", err)
 	}
 	defer file.Close()
-	// сериализация
 	data, err := json.MarshalIndent(newInfo, "", " ")
 	if err != nil {
 		return fmt.Errorf("Error occured while marshalising the data into JSON: %w", err)
 	}
-	// запись
 	file.WriteString(string(data))
 	return nil
 }
@@ -83,7 +76,8 @@ func IsValidID(id string) bool {
 	return true
 }
 
-func BinarySearchOfTaskID(tasks []Task, id int) int {
+// Binary search
+func BinarySearchOfTaskID(id int, tasks []Task) int {
 	start, end := 0, len(tasks)-1
 
 	for start <= end {
@@ -101,6 +95,7 @@ func BinarySearchOfTaskID(tasks []Task, id int) int {
 	return -1
 }
 
+// searches a task with input id and returns index of the task
 func FindTaskID(id string, tasks []Task) (int, error) {
 	if !IsValidID(id) {
 		return -1, fmt.Errorf("invalid taskID format: %s", id)
@@ -110,9 +105,7 @@ func FindTaskID(id string, tasks []Task) (int, error) {
 	if err != nil {
 		return -1, fmt.Errorf("failed to convert taskID '%s' to integer: %w", id, err)
 	}
-
-	//  Поиск задачи (бинарынй поиск)
-	taskIndex := BinarySearchOfTaskID(tasks, convertedID)
+	taskIndex := BinarySearchOfTaskID(convertedID, tasks)
 	if taskIndex == -1 {
 		return -1, fmt.Errorf("task with ID %d not found", convertedID)
 	}
@@ -120,6 +113,7 @@ func FindTaskID(id string, tasks []Task) (int, error) {
 	return taskIndex, nil
 }
 
+// Prints a task
 func PrintTask(task Task) {
 	fmt.Printf("-TaskID: %v\nDescription: %v\nStatus: %v\ncreatedAt: %v\nupdatedAt: %v\n\n",
 		task.ID,
